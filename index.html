@@ -3,10 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- DIRETIVAS DE PRIVACIDADE: IMPEDE INDEXAÇÃO EM BUSCADORES -->
-  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
-  <meta name="googlebot" content="noindex, nofollow">
-
   <title>Viabilidade 3D</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -56,7 +52,7 @@
       z-index: 1;
     }
 
-    /* BARRA FIXA SUPERIOR ESQUERDA: BOTÃO + TÍTULO FIXO */
+    /* BARRA FIXA SUPERIOR ESQUERDA: BOTÃO + TÍTULO */
     .top-brand-hud {
       position: absolute;
       top: 14px;
@@ -422,7 +418,7 @@
 <body>
   <div id="webgl-container"></div>
 
-  <!-- ELEMENTO FIXO SUPERIOR ESQUERDO: BOTÃO + TÍTULO -->
+  <!-- ELEMENTO FIXO SUPERIOR ESQUERDO: BOTÃO DE RECUAR/EXPANDIR + TÍTULO FIXO -->
   <div class="top-brand-hud">
     <button class="toggle-sidebar-btn" id="btnToggleSidebar" title="Alternar Painel">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -459,7 +455,7 @@
       <div class="legend-color" style="background: #3b82f6; border: 1px dashed #fff;"></div>
       <span>Garagem Superior (>10m recuada)</span>
     </div>
-    <div class="legend-item">
+    <div class="legend-item" id="legendEnvelope">
       <div class="legend-color" style="background: #eab308; border: 1px dashed #eab308;"></div>
       <span>Envelope dos Afastamentos</span>
     </div>
@@ -847,6 +843,59 @@
       return sprite;
     }
 
+    function makeTextSprite(message, parameters = {}) {
+      const fontface = parameters.fontface || "JetBrains Mono, monospace";
+      const fontsize = parameters.fontsize || 24;
+      const borderThickness = parameters.borderThickness || 2;
+      const borderColor = parameters.borderColor || { r: 56, g: 189, b: 248, a: 0.8 };
+      const backgroundColor = parameters.backgroundColor || { r: 15, g: 23, b: 42, a: 0.88 };
+      const textColor = parameters.textColor || "#ffffff";
+
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = 512;
+      canvas.height = 128;
+
+      context.font = "Bold " + fontsize + "px " + fontface;
+      const metrics = context.measureText(message);
+      const textWidth = metrics.width;
+
+      const x = (canvas.width - textWidth - 30) / 2;
+      const y = 30;
+      const w = textWidth + 30;
+      const h = fontsize + 24;
+      const radius = 8;
+
+      context.fillStyle = `rgba(${backgroundColor.r},${backgroundColor.g},${backgroundColor.b},${backgroundColor.a})`;
+      context.strokeStyle = `rgba(${borderColor.r},${borderColor.g},${borderColor.b},${borderColor.a})`;
+      context.lineWidth = borderThickness;
+
+      context.beginPath();
+      context.moveTo(x + radius, y);
+      context.lineTo(x + w - radius, y);
+      context.quadraticCurveTo(x + w, y, x + w, y + radius);
+      context.lineTo(x + w, y + h - radius);
+      context.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+      context.lineTo(x + radius, y + h);
+      context.quadraticCurveTo(x, y + h, x, y + h - radius);
+      context.lineTo(x, y + radius);
+      context.quadraticCurveTo(x, y, x + radius, y);
+      context.closePath();
+      context.fill();
+      context.stroke();
+
+      context.fillStyle = textColor;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(message, canvas.width / 2, y + h / 2);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.minFilter = THREE.LinearFilter;
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true }));
+      sprite.scale.set(15, 3.75, 1);
+      return sprite;
+    }
+
     function addArchitecturalDimensionLine(group, points, fixedCoord, axis, planeY, offsetRefCoord, color = 0x94a3b8) {
       if (points.length < 2) return;
       const tickSize = 0.7;
@@ -1132,7 +1181,7 @@
         L_terr, P_terr,
         af_front, af_lat, af_fundo,
         af_esq_base, af_dir_base, af_fundo_base,
-        L_base, P_base, h_base_colada, pvt_base_colada_total,_base, P_base, h_base_colada, pvt_base_colada_total,
+        L_base, P_base, h_base_colada, pvt_base_colada_total,
         semienterrado,
         pvt_gar_recuado, h_garagem_recuada,
         L_torre, P_torre, h_corpo, num_pvt_tipo,
@@ -1237,3 +1286,222 @@
       // 4. GARAGENS RECUADAS SUPERIORES (>10M)
       let currentTopY = h_base_colada;
       if (pvt_gar_recuado > 0) {
+        const garRecGeo = new THREE.BoxGeometry(L_torre, h_garagem_recuada, P_torre);
+        const garRecMesh = new THREE.Mesh(garRecGeo, new THREE.MeshStandardMaterial({
+          color: 0x3b82f6,
+          roughness: 0.4
+        }));
+        garRecMesh.position.set(0, currentTopY + (h_garagem_recuada / 2), centerZ_torre_env);
+        garRecMesh.castShadow = true;
+        garRecMesh.receiveShadow = true;
+        buildingGroup.add(garRecMesh);
+
+        const garRecEdges = new THREE.LineSegments(new THREE.EdgesGeometry(garRecGeo), new THREE.LineBasicMaterial({ color: 0x93c5fd }));
+        garRecEdges.position.copy(garRecMesh.position);
+        buildingGroup.add(garRecEdges);
+
+        currentTopY += h_garagem_recuada;
+      }
+
+      // 5. CORPO (TORRE RESIDENCIAL)
+      const posY_torre = currentTopY + (h_corpo / 2);
+      const torreGeo = new THREE.BoxGeometry(L_torre, h_corpo, P_torre);
+      const torreMesh = new THREE.Mesh(torreGeo, new THREE.MeshStandardMaterial({
+        color: statusGlobalPassa ? 0x2563eb : 0xbe123c,
+        roughness: 0.35,
+        metalness: 0.45
+      }));
+      torreMesh.position.set(0, posY_torre, centerZ_torre_env);
+      torreMesh.castShadow = true;
+      torreMesh.receiveShadow = true;
+      buildingGroup.add(torreMesh);
+
+      const torreEdges = new THREE.LineSegments(new THREE.EdgesGeometry(torreGeo), new THREE.LineBasicMaterial({
+        color: statusGlobalPassa ? 0x60a5fa : 0xf43f5e,
+        linewidth: 2
+      }));
+      torreEdges.position.copy(torreMesh.position);
+      buildingGroup.add(torreEdges);
+
+      for (let i = 1; i <= num_pvt_tipo; i++) {
+        const yPvt = currentTopY + (i * pe_direito);
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(-L_torre / 2, yPvt, P_torre / 2),
+          new THREE.Vector3(L_torre / 2, yPvt, P_torre / 2),
+          new THREE.Vector3(L_torre / 2, yPvt, -P_torre / 2),
+          new THREE.Vector3(-L_torre / 2, yPvt, -P_torre / 2),
+          new THREE.Vector3(-L_torre / 2, yPvt, P_torre / 2),
+        ]);
+        const floorLine = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xbfdbfe, transparent: true, opacity: 0.5 }));
+        floorLine.position.z = centerZ_torre_env;
+        buildingGroup.add(floorLine);
+      }
+
+      const h_caixa = 3.0;
+      const caixaGeo = new THREE.BoxGeometry(L_torre * 0.45, h_caixa, P_torre * 0.45);
+      const caixaMesh = new THREE.Mesh(caixaGeo, new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 }));
+      caixaMesh.position.set(0, h_total_acima_solo + (h_caixa / 2), centerZ_torre_env);
+      buildingGroup.add(caixaMesh);
+
+      // 6. GABARITO LEGAL
+      if (!semGabarito && gabarito > 0) {
+        const gabaritoPlaneGeo = new THREE.PlaneGeometry(L_terr * 1.3, P_terr * 1.3);
+        gabaritoPlaneGeo.rotateX(-Math.PI / 2);
+        const gabColor = passa_gabarito ? 0x10b981 : 0xef4444;
+        const gabaritoMesh = new THREE.Mesh(gabaritoPlaneGeo, new THREE.MeshBasicMaterial({
+          color: gabColor,
+          transparent: true,
+          opacity: 0.18,
+          side: THREE.DoubleSide
+        }));
+        gabaritoMesh.position.set(0, gabarito, 0);
+        gabaritoGroup.add(gabaritoMesh);
+
+        const gabEdges = new THREE.LineSegments(new THREE.EdgesGeometry(gabaritoPlaneGeo), new THREE.LineDashedMaterial({
+          color: gabColor,
+          dashSize: 2,
+          gapSize: 1,
+          linewidth: 2
+        }));
+        gabEdges.computeLineDistances();
+        gabEdges.position.set(0, gabarito, 0);
+        gabaritoGroup.add(gabEdges);
+
+        const gabSprite = makeTextSprite(`GABARITO MÁXIMO: ${gabarito.toFixed(1)}m`, {
+          fontsize: 22,
+          borderColor: passa_gabarito ? { r: 16, g: 185, b: 129, a: 1 } : { r: 239, g: 68, b: 68, a: 1 },
+          textColor: passa_gabarito ? "#34d399" : "#f87171"
+        });
+        gabSprite.position.set(0, gabarito + 2.5, frontZ);
+        dimensionsGroup.add(gabSprite);
+      }
+
+      // 7. COTAS ARQUITETÔNICAS HORIZONTAIS
+      if (showCotas) {
+        const planeY_ground = 0.15;
+        const distOffset1 = 4.0;
+        const distOffset2 = 8.0;
+
+        // A) PLANO DO TERRENO (BASE E LOTE):
+        const zCotaTop_parcial = backZ - distOffset1;
+        const zCotaTop_total = backZ - distOffset2;
+
+        const xTorreStart = -L_torre / 2;
+        const xTorreEnd = L_torre / 2;
+        addArchitecturalDimensionLine(dimensionsGroup, [leftX, xTorreStart, xTorreEnd, rightX], zCotaTop_parcial, 'X', planeY_ground, backZ, 0x38bdf8);
+        addArchitecturalDimensionLine(dimensionsGroup, [leftX, rightX], zCotaTop_total, 'X', planeY_ground, backZ, 0x94a3b8);
+
+        const zBaseFrente = frontZ - af_front;
+        const zBaseFundo = backZ + af_fundo_base;
+        const xCotaLeft_base = leftX - distOffset1;
+        const xCotaLeft_total = leftX - distOffset2;
+
+        const ptsZ_base = Array.from(new Set([backZ, zBaseFundo, zBaseFrente, frontZ])).sort((a, b) => a - b);
+        addArchitecturalDimensionLine(dimensionsGroup, ptsZ_base, xCotaLeft_base, 'Z', planeY_ground, leftX, 0x38bdf8);
+        addArchitecturalDimensionLine(dimensionsGroup, [backZ, frontZ], xCotaLeft_total, 'Z', planeY_ground, leftX, 0x94a3b8);
+
+        // B) PLANO MÉDIO DA TORRE (Y = meio da torre):
+        const planeY_torre = posY_torre;
+
+        const zTorreFundo = centerZ_torre_env - P_torre / 2;
+        const zTorreFrente = centerZ_torre_env + P_torre / 2;
+        const xCotaRight_torre = rightX + distOffset1;
+        const xCotaRight_total = rightX + distOffset2;
+
+        const ptsZ_torre = Array.from(new Set([backZ, zTorreFundo, zTorreFrente, frontZ])).sort((a, b) => a - b);
+        addArchitecturalDimensionLine(dimensionsGroup, ptsZ_torre, xCotaRight_torre, 'Z', planeY_torre, rightX, 0x60a5fa);
+        addArchitecturalDimensionLine(dimensionsGroup, [backZ, frontZ], xCotaRight_total, 'Z', planeY_torre, rightX, 0x94a3b8);
+
+        const zCotaFront_torre = frontZ + distOffset1;
+        addArchitecturalDimensionLine(dimensionsGroup, [leftX, xTorreStart, xTorreEnd, rightX], zCotaFront_torre, 'X', planeY_torre, frontZ, 0x60a5fa);
+      }
+    }
+
+    function updateCameraForCurrentView() {
+      const aspect = window.innerWidth / window.innerHeight;
+      const L_terr = parseFloat(inputs.larguraTerreno.value) || 25;
+      const P_terr = parseFloat(inputs.profundidadeTerreno.value) || 40;
+      const h_total = parseFloat(outputs.alturaTotal.textContent) || 40;
+
+      currentFrustumSize = Math.max(L_terr, P_terr, h_total, 45) * 1.5;
+
+      orthoCamera.left = -currentFrustumSize * aspect / 2;
+      orthoCamera.right = currentFrustumSize * aspect / 2;
+      orthoCamera.top = currentFrustumSize / 2;
+      orthoCamera.bottom = -currentFrustumSize / 2;
+      orthoCamera.updateProjectionMatrix();
+
+      if (currentViewMode === 'iso') {
+        activeCamera = perspCamera;
+        controls.object = perspCamera;
+        controls.enableRotate = true;
+      } else {
+        activeCamera = orthoCamera;
+        controls.object = orthoCamera;
+
+        if (currentViewMode === 'top') {
+          orthoCamera.position.set(0, 200, 0);
+          orthoCamera.up.set(0, 0, -1);
+          controls.target.set(0, 0, 0);
+          controls.enableRotate = false;
+        } else if (currentViewMode === 'front') {
+          orthoCamera.position.set(0, h_total / 2, 200);
+          orthoCamera.up.set(0, h_total / 2, 200);
+          orthoCamera.up.set(0, 1, 0);
+          controls.target.set(0, h_total / 2, 0);
+          controls.enableRotate = false;
+        } else if (currentViewMode === 'side') {
+          orthoCamera.position.set(200, h_total / 2, 0);
+          orthoCamera.up.set(0, 1, 0);
+          controls.target.set(0, h_total / 2, 0);
+          controls.enableRotate = false;
+        }
+      }
+      controls.update();
+    }
+
+    function setView(viewName) {
+      currentViewMode = viewName;
+
+      outputs.btnViewIso.className = `hud-btn ${viewName === 'iso' ? 'active' : ''}`;
+      outputs.btnViewTop.className = `hud-btn ${viewName === 'top' ? 'active' : ''}`;
+      outputs.btnViewFront.className = `hud-btn ${viewName === 'front' ? 'active' : ''}`;
+      outputs.btnViewSide.className = `hud-btn ${viewName === 'side' ? 'active' : ''}`;
+
+      if (viewName === 'iso') {
+        const L_terr = parseFloat(inputs.larguraTerreno.value) || 25;
+        const P_terr = parseFloat(inputs.profundidadeTerreno.value) || 40;
+        const maxDim = Math.max(L_terr, P_terr, 45);
+        const h_total = parseFloat(outputs.alturaTotal.textContent) || 35;
+
+        perspCamera.position.set(maxDim * 1.3, maxDim * 1.0, maxDim * 1.4);
+        perspCamera.up.set(0, 1, 0);
+        controls.target.set(0, Math.min(30, h_total * 0.4), 0);
+      }
+
+      updateCameraForCurrentView();
+    }
+
+    function toggleCotas() {
+      showCotas = !showCotas;
+      inputs.showCotas.checked = showCotas;
+      updateModel();
+    }
+
+    Object.values(inputs).forEach(input => {
+      input.addEventListener('input', updateModel);
+      input.addEventListener('change', updateModel);
+    });
+
+    document.getElementById('btnToggleSidebar').addEventListener('click', () => {
+      document.getElementById('appSidebar').classList.toggle('collapsed');
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initThree();
+      updateModel();
+      setView('iso');
+    });
+  </script>
+</body>
+</html>
