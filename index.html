@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- DIRETIVAS DE PRIVACIDADE: IMPEDE INDEXAÇÃO EM BUSCADORES -->
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <meta name="googlebot" content="noindex, nofollow">
+
+  <title>Viabilidade 3D</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --panel-bg: rgba(15, 23, 42, 0.94);
+      --panel-border: rgba(148, 163, 184, 0.18);
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.25);
+      --accent-green: #34d399;
+      --accent-red: #f87171;
+      --accent-yellow: #fbbf24;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --card-bg: rgba(30, 41, 59, 0.65);
+      --input-bg: #1e293b;
+      --input-border: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    #webgl-container {
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+
+    /* BARRA FIXA SUPERIOR ESQUERDA: BOTÃO + TÍTULO FIXO */
+    .top-brand-hud {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      pointer-events: auto;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      padding: 6px 14px 6px 8px;
+      border-radius: 8px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+    }
+
+    .toggle-sidebar-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .toggle-sidebar-btn:hover {
+      background: #1e293b;
+      color: var(--accent);
+    }
+
+    .app-title-fixed {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #fff;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .app-layout {
+      position: relative;
+      z-index: 10;
+      height: 100vh;
+      display: flex;
+      pointer-events: none;
+    }
+
+    .sidebar {
+      width: 410px;
+      max-width: calc(100vw - 60px);
+      background: var(--panel-bg);
+      backdrop-filter: blur(20px);
+      border-right: 1px solid var(--panel-border);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      pointer-events: auto;
+      box-shadow: 6px 0 30px rgba(0, 0, 0, 0.5);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .sidebar.collapsed {
+      transform: translateX(-100%);
+    }
+
+    .sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 68px 18px 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .sidebar-content::-webkit-scrollbar {
+      width: 5px;
+    }
+    .sidebar-content::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+
+    .section-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .panel-card {
+      background: var(--card-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .input-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .form-group label {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .form-group label span.unit {
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .input-control {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--text-primary);
+      padding: 6px 9px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-family: 'JetBrains Mono', monospace;
+      outline: none;
+      width: 100%;
+      transition: all 0.2s;
+    }
+
+    .input-control:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+
+    .toggles-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .checkbox-row label {
+      font-size: 0.74rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      line-height: 1.25;
+    }
+
+    .status-master-card {
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: all 0.3s;
+    }
+
+    .status-master-card.pass {
+      background: rgba(52, 211, 153, 0.12);
+      border: 1px solid rgba(52, 211, 153, 0.35);
+    }
+
+    .status-master-card.fail {
+      background: rgba(248, 113, 113, 0.12);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+    }
+
+    .status-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .status-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-pill {
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+    }
+
+    .status-pill.pass {
+      background: var(--accent-green);
+      color: #064e3b;
+    }
+
+    .status-pill.fail {
+      background: var(--accent-red);
+      color: #7f1d1d;
+    }
+
+    .validation-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-top: 4px;
+    }
+
+    .validation-item {
+      font-size: 0.72rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      line-height: 1.3;
+    }
+
+    .validation-icon {
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .validation-icon.pass { color: var(--accent-green); }
+    .validation-icon.fail { color: var(--accent-red); }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .metric-card {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 9px 11px;
+      border-radius: 7px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .metric-card.full-width {
+      grid-column: span 2;
+    }
+
+    .metric-card .metric-label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .metric-card .metric-value {
+      font-size: 0.98rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: #fff;
+    }
+
+    .metric-card .metric-sub {
+      font-size: 0.65rem;
+      color: var(--text-secondary);
+    }
+
+    .top-hud {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: flex;
+      gap: 6px;
+      pointer-events: auto;
+      z-index: 20;
+    }
+
+    .hud-btn {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      color: var(--text-primary);
+      padding: 7px 11px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .hud-btn:hover {
+      background: #1e293b;
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .hud-btn.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .viewport-legend {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      padding: 10px 14px;
+      border-radius: 6px;
+      pointer-events: auto;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.7rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-color {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="webgl-container"></div>
+
+  <!-- ELEMENTO FIXO SUPERIOR ESQUERDO: BOTÃO + TÍTULO -->
+  <div class="top-brand-hud">
+    <button class="toggle-sidebar-btn" id="btnToggleSidebar" title="Alternar Painel">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+    <div class="app-title-fixed">Viabilidade 3D</div>
+  </div>
+
+  <!-- HUD Superior Direito: Vistas e Toggle de Cotas -->
+  <div class="top-hud">
+    <button class="hud-btn active" id="btnViewIso" onclick="setView('iso')">Perspectiva 3D</button>
+    <button class="hud-btn" id="btnViewTop" onclick="setView('top')">Planta (Superior 2D)</button>
+    <button class="hud-btn" id="btnViewFront" onclick="setView('front')">Fachada Frontal 2D</button>
+    <button class="hud-btn" id="btnViewSide" onclick="setView('side')">Fachada Lateral 2D</button>
+    <button class="hud-btn active" id="btnToggleCotas" onclick="toggleCotas()">Cotas: LIGADAS</button>
+  </div>
+
+  <div class="viewport-legend">
+    <div style="font-weight: 700; color: var(--accent); margin-bottom: 2px;">LEGENDA TÉCNICA</div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #2563eb;"></div>
+      <span>Corpo (Pavimentos Tipo / Torre)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #475569;"></div>
+      <span>Base Colada (Até 10m acima do solo)</span>
+    </div>
+    <div class="legend-item" id="legendSemienterrado">
+      <div class="legend-color" style="background: #334155; border: 1px solid #38bdf8;"></div>
+      <span>Pavimento Semienterrado</span>
+    </div>
+    <div class="legend-item" id="legendGaragemRecuada" style="display:none;">
+      <div class="legend-color" style="background: #3b82f6; border: 1px dashed #fff;"></div>
+      <span>Garagem Superior (>10m recuada)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #eab308; border: 1px dashed #eab308;"></div>
+      <span>Envelope dos Afastamentos</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #16a34a;"></div>
+      <span>Limite do Terreno</span>
+    </div>
+    <div class="legend-item" id="legendGabarito">
+      <div class="legend-color" style="background: #ef4444; border: 1px dashed #ef4444;"></div>
+      <span>Plano de Gabarito Legal</span>
+    </div>
+  </div>
+
+  <div class="app-layout">
+    <aside class="sidebar" id="appSidebar">
+      <div class="sidebar-content">
+
+        <!-- STATUS MASTER: PASSA / NÃO PASSA -->
+        <div id="cardStatusMaster" class="status-master-card pass">
+          <div class="status-header-row">
+            <span class="status-title">Validação Urbanística Global</span>
+            <span id="badgeStatusMaster" class="status-pill pass">PASSA</span>
+          </div>
+          <div class="validation-list" id="listValidations"></div>
+        </div>
+
+        <!-- 1. Terreno -->
+        <div class="panel-card">
+          <div class="section-title">1. Terreno (Retangular)</div>
+          <div class="input-grid">
+            <div class="form-group">
+              <label>Largura (Testada) <span class="unit">[m]</span></label>
+              <input type="number" id="inLarguraTerreno" class="input-control" value="25" min="5" step="0.5">
+            </div>
+            <div class="form-group">
+              <label>Profundidade <span class="unit">[m]</span></label>
+              <input type="number" id="inProfundidadeTerreno" class="input-control" value="40" min="5" step="0.5">
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Parâmetros Urbanísticos & Afastamentos -->
+        <div class="panel-card">
+          <div class="section-title">2. Parâmetros & Afastamentos</div>
+          <div class="input-grid">
+            <div class="form-group">
+              <label>Coef. Aproveitamento (&mu;)</label>
+              <input type="number" id="inCoefAproveitamento" class="input-control" value="2.0" min="0.1" step="0.1">
+            </div>
+            <div class="form-group">
+              <label>TSN Mínima Norma <span class="unit">[%]</span></label>
+              <input type="number" id="inTSN" class="input-control" value="20" min="0" max="100" step="1">
+            </div>
+            <div class="form-group">
+              <label>Af. Frontal Adotado <span class="unit">[m]</span></label>
+              <input type="number" id="inAfFrontal" class="input-control" value="7.0" min="0" step="0.5">
+            </div>
+            <div class="form-group">
+              <label>Af. Frontal Mínimo <span class="unit">[m]</span></label>
+              <input type="number" id="inAfFrontalMin" class="input-control" value="5.0" min="0" step="0.5">
+            </div>
+            <div class="form-group">
+              <label>Af. Lateral/Traseiro <span class="unit">[m]</span></label>
+              <input type="number" id="inAfLateral" class="input-control" value="4.0" min="0" step="0.5">
+            </div>
+            <div class="form-group">
+              <label>Gabarito Máximo <span class="unit">[m]</span></label>
+              <input type="number" id="inGabaritoMax" class="input-control" value="65" min="0" step="1">
+            </div>
+          </div>
+
+          <div class="toggles-group">
+            <div class="checkbox-row">
+              <input type="checkbox" id="chkSemGabarito">
+              <label for="chkSemGabarito">Sem gabarito máximo fixado (Livre)</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="chkShowCotas" checked>
+              <label for="chkShowCotas">Exibir Cotas Arquitetônicas Horizontais</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Envelope da Base & Divisas -->
+        <div class="panel-card">
+          <div class="section-title">3. Implantação da Base (Garagens)</div>
+          <div style="font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 8px;">
+            Opções de encostar nas divisas (máx. 10m / 3 pav. acima do solo):
+          </div>
+          <div class="toggles-group" style="margin-top: 0; padding-top: 0; border-top: none;">
+            <div class="checkbox-row">
+              <input type="checkbox" id="chkColaEsq" checked>
+              <label for="chkColaEsq">Colar na Lateral Esquerda</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="chkColaDir" checked>
+              <label for="chkColaDir">Colar na Lateral Direita</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="chkColaFundo">
+              <label for="chkColaFundo">Colar no Fundo (Traseira)</label>
+            </div>
+            <div class="checkbox-row" style="margin-top: 4px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.08);">
+              <input type="checkbox" id="chkSemienterrado">
+              <label for="chkSemienterrado">Considerar 1º pavimento como Semienterrado</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Tipologia da Torre & Vagas -->
+        <div class="panel-card">
+          <div class="section-title">4. Tipologia da Torre & Vagas</div>
+          <div class="input-grid">
+            <div class="form-group">
+              <label>Área da Unidade <span class="unit">[m²]</span></label>
+              <input type="number" id="inAreaUnidade" class="input-control" value="200" min="10" step="5">
+            </div>
+            <div class="form-group">
+              <label>Unidades por Pavimento</label>
+              <input type="number" id="inUnidPorPvt" class="input-control" value="1" min="1" step="1">
+            </div>
+          </div>
+          <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 6px;">
+            * Área comum calculada: 20m² (até 2 unid.) + 10m² por unidade adicional.
+          </div>
+        </div>
+
+        <!-- 5. Quadro Resumo de Viabilidade -->
+        <div class="panel-card" style="background: rgba(15, 23, 42, 0.95); border-color: rgba(56, 189, 248, 0.3);">
+          <div class="section-title" style="color: #fff;">Quadro Resumo de Viabilidade</div>
+
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-label">Área do Terreno</div>
+              <div class="metric-value" id="resAreaTerreno">-</div>
+              <div class="metric-sub" id="resDimTerreno">-</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Área Priv. Máx (&mu;)</div>
+              <div class="metric-value" id="resAreaPrivMax" style="color: var(--accent);">-</div>
+              <div class="metric-sub">Terreno × &mu;</div>
+            </div>
+
+            <div class="metric-card" style="border-color: rgba(56, 189, 248, 0.35);">
+              <div class="metric-label">% Utilização do C.U.</div>
+              <div class="metric-value" id="resPercUtilizacao" style="color: var(--accent);">-</div>
+              <div class="metric-sub" id="resPercUtilizacaoSub">Calculada / Máxima</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Solo Natural (ASN)</div>
+              <div class="metric-value" id="resASN">-</div>
+              <div class="metric-sub" id="resTSNProjeto">-</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Projeção da Base</div>
+              <div class="metric-value" id="resProjBase">-</div>
+              <div class="metric-sub" id="resDimBase">-</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Torre (Necessária / Máx)</div>
+              <div class="metric-value" id="resProjTorre">-</div>
+              <div class="metric-sub" id="resAreaComumInfo">-</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Unidades & Pav. Tipo</div>
+              <div class="metric-value" id="resTotalUnidades">-</div>
+              <div class="metric-sub" id="resDetPavTipo">-</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Vagas & Garagem</div>
+              <div class="metric-value" id="resTotalVagas" style="color: var(--accent-yellow);">-</div>
+              <div class="metric-sub" id="resAreaGaragem">-</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Pavimentos da Base</div>
+              <div class="metric-value" id="resPavBase">-</div>
+              <div class="metric-sub" id="resDetBase">-</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-label">Altura Total</div>
+              <div class="metric-value" id="resAlturaTotal">-</div>
+              <div class="metric-sub" id="resTotalPav">-</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const inputs = {
+      larguraTerreno: document.getElementById('inLarguraTerreno'),
+      profundidadeTerreno: document.getElementById('inProfundidadeTerreno'),
+      coefAproveitamento: document.getElementById('inCoefAproveitamento'),
+      tsn: document.getElementById('inTSN'),
+      afFrontal: document.getElementById('inAfFrontal'),
+      afFrontalMin: document.getElementById('inAfFrontalMin'),
+      afLateral: document.getElementById('inAfLateral'),
+      gabaritoMax: document.getElementById('inGabaritoMax'),
+      semGabarito: document.getElementById('chkSemGabarito'),
+      showCotas: document.getElementById('chkShowCotas'),
+      colaEsq: document.getElementById('chkColaEsq'),
+      colaDir: document.getElementById('chkColaDir'),
+      colaFundo: document.getElementById('chkColaFundo'),
+      semienterrado: document.getElementById('chkSemienterrado'),
+      areaUnidade: document.getElementById('inAreaUnidade'),
+      unidPorPvt: document.getElementById('inUnidPorPvt'),
+    };
+
+    const outputs = {
+      cardStatusMaster: document.getElementById('cardStatusMaster'),
+      badgeStatusMaster: document.getElementById('badgeStatusMaster'),
+      listValidations: document.getElementById('listValidations'),
+      areaTerreno: document.getElementById('resAreaTerreno'),
+      dimTerreno: document.getElementById('resDimTerreno'),
+      areaPrivMax: document.getElementById('resAreaPrivMax'),
+      percUtilizacao: document.getElementById('resPercUtilizacao'),
+      percUtilizacaoSub: document.getElementById('resPercUtilizacaoSub'),
+      asn: document.getElementById('resASN'),
+      tsnProjeto: document.getElementById('resTSNProjeto'),
+      projBase: document.getElementById('resProjBase'),
+      dimBase: document.getElementById('resDimBase'),
+      projTorre: document.getElementById('resProjTorre'),
+      areaComumInfo: document.getElementById('resAreaComumInfo'),
+      totalUnidades: document.getElementById('resTotalUnidades'),
+      detPavTipo: document.getElementById('resDetPavTipo'),
+      totalVagas: document.getElementById('resTotalVagas'),
+      areaGaragem: document.getElementById('resAreaGaragem'),
+      pavBase: document.getElementById('resPavBase'),
+      detBase: document.getElementById('resDetBase'),
+      alturaTotal: document.getElementById('resAlturaTotal'),
+      totalPav: document.getElementById('resTotalPav'),
+      legendGabarito: document.getElementById('legendGabarito'),
+      legendSemienterrado: document.getElementById('legendSemienterrado'),
+      legendGaragemRecuada: document.getElementById('legendGaragemRecuada'),
+      btnToggleCotas: document.getElementById('btnToggleCotas'),
+      btnViewIso: document.getElementById('btnViewIso'),
+      btnViewTop: document.getElementById('btnViewTop'),
+      btnViewFront: document.getElementById('btnViewFront'),
+      btnViewSide: document.getElementById('btnViewSide'),
+    };
+
+    let scene, renderer, controls;
+    let perspCamera, orthoCamera, activeCamera;
+    let groundGroup, setbackGroup, buildingGroup, gabaritoGroup, dimensionsGroup;
+    let showCotas = true;
+    let currentViewMode = 'iso';
+    let currentFrustumSize = 80;
+
+    function initThree() {
+      const container = document.getElementById('webgl-container');
+      const aspect = window.innerWidth / window.innerHeight;
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x090d16);
+      scene.fog = new THREE.FogExp2(0x090d16, 0.005);
+
+      perspCamera = new THREE.PerspectiveCamera(45, aspect, 1, 1000);
+      perspCamera.position.set(70, 55, 80);
+
+      currentFrustumSize = 75;
+      orthoCamera = new THREE.OrthographicCamera(
+        -currentFrustumSize * aspect / 2,
+         currentFrustumSize * aspect / 2,
+         currentFrustumSize / 2,
+        -currentFrustumSize / 2,
+        1,
+        1500
+      );
+
+      activeCamera = perspCamera;
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(activeCamera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2 - 0.01;
+      controls.minDistance = 5;
+      controls.maxDistance = 500;
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x1e293b, 0.45);
+      hemiLight.position.set(0, 100, 0);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+      dirLight.position.set(60, 120, 70);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 2048;
+      dirLight.shadow.mapSize.height = 2048;
+      dirLight.shadow.camera.near = 10;
+      dirLight.shadow.camera.far = 300;
+      const d = 80;
+      dirLight.shadow.camera.left = -d;
+      dirLight.shadow.camera.right = d;
+      dirLight.shadow.camera.top = d;
+      dirLight.shadow.camera.bottom = -d;
+      scene.add(dirLight);
+
+      groundGroup = new THREE.Group();
+      setbackGroup = new THREE.Group();
+      buildingGroup = new THREE.Group();
+      gabaritoGroup = new THREE.Group();
+      dimensionsGroup = new THREE.Group();
+
+      scene.add(groundGroup);
+      scene.add(setbackGroup);
+      scene.add(buildingGroup);
+      scene.add(gabaritoGroup);
+      scene.add(dimensionsGroup);
+
+      const grid = new THREE.GridHelper(300, 60, 0x1e293b, 0x111827);
+      grid.position.y = -0.05;
+      scene.add(grid);
+
+      window.addEventListener('resize', onWindowResize, false);
+      animate();
+    }
+
+    function onWindowResize() {
+      const aspect = window.innerWidth / window.innerHeight;
+
+      perspCamera.aspect = aspect;
+      perspCamera.updateProjectionMatrix();
+
+      orthoCamera.left = -currentFrustumSize * aspect / 2;
+      orthoCamera.right = currentFrustumSize * aspect / 2;
+      orthoCamera.top = currentFrustumSize / 2;
+      orthoCamera.bottom = -currentFrustumSize / 2;
+      orthoCamera.updateProjectionMatrix();
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, activeCamera);
+    }
+
+    function makeCotaTextSprite(text, color = "#f8fafc") {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 256;
+      canvas.height = 96;
+
+      ctx.font = "Bold 36px 'JetBrains Mono', monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      ctx.fillStyle = "rgba(15, 23, 42, 0.78)";
+      const metrics = ctx.measureText(text);
+      const textWidth = metrics.width;
+      const pad = 12;
+      ctx.roundRect((canvas.width - textWidth)/2 - pad, 20, textWidth + pad*2, 56, 8);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = color;
+      ctx.fillText(text, canvas.width / 2, 48);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.minFilter = THREE.LinearFilter;
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true }));
+      sprite.scale.set(7.5, 2.8, 1);
+      return sprite;
+    }
+
+    function addArchitecturalDimensionLine(group, points, fixedCoord, axis, planeY, offsetRefCoord, color = 0x94a3b8) {
+      if (points.length < 2) return;
+      const tickSize = 0.7;
+      const lineMaterial = new THREE.LineBasicMaterial({ color: color, depthTest: false, transparent: true, opacity: 0.9 });
+      const linePoints = [];
+
+      const pFirst = points[0];
+      const pLast = points[points.length - 1];
+
+      if (axis === 'X') {
+        linePoints.push(new THREE.Vector3(pFirst, planeY, fixedCoord));
+        linePoints.push(new THREE.Vector3(pLast, planeY, fixedCoord));
+      } else {
+        linePoints.push(new THREE.Vector3(fixedCoord, planeY, pFirst));
+        linePoints.push(new THREE.Vector3(fixedCoord, planeY, pLast));
+      }
+
+      for (let i = 0; i < points.length; i++) {
+        const val = points[i];
+        if (axis === 'X') {
+          const dir = Math.sign(fixedCoord - offsetRefCoord) || 1;
+          const extStart = offsetRefCoord;
+          const extEnd = fixedCoord + (dir * 1.0);
+          linePoints.push(new THREE.Vector3(val, planeY, extStart));
+          linePoints.push(new THREE.Vector3(val, planeY, extEnd));
+
+          linePoints.push(new THREE.Vector3(val - tickSize, planeY, fixedCoord - tickSize));
+          linePoints.push(new THREE.Vector3(val + tickSize, planeY, fixedCoord + tickSize));
+        } else {
+          const dir = Math.sign(fixedCoord - offsetRefCoord) || 1;
+          const extStart = offsetRefCoord;
+          const extEnd = fixedCoord + (dir * 1.0);
+          linePoints.push(new THREE.Vector3(extStart, planeY, val));
+          linePoints.push(new THREE.Vector3(extEnd, planeY, val));
+
+          linePoints.push(new THREE.Vector3(fixedCoord - tickSize, planeY, val - tickSize));
+          linePoints.push(new THREE.Vector3(fixedCoord + tickSize, planeY, val + tickSize));
+        }
+      }
+
+      const geom = new THREE.BufferGeometry().setFromPoints(linePoints);
+      const segs = new THREE.LineSegments(geom, lineMaterial);
+      group.add(segs);
+
+      for (let i = 0; i < points.length - 1; i++) {
+        const pA = points[i];
+        const pB = points[i + 1];
+        const dist = Math.abs(pB - pA);
+        if (dist < 0.1) continue;
+
+        const mid = (pA + pB) / 2;
+        const textSprite = makeCotaTextSprite(dist.toFixed(2), "#ffffff");
+
+        if (axis === 'X') {
+          textSprite.position.set(mid, planeY + 0.1, fixedCoord);
+        } else {
+          textSprite.position.set(fixedCoord, planeY + 0.1, mid);
+        }
+        group.add(textSprite);
+      }
+    }
+
+    function updateModel() {
+      const L_terr = Math.max(5, parseFloat(inputs.larguraTerreno.value) || 25);
+      const P_terr = Math.max(5, parseFloat(inputs.profundidadeTerreno.value) || 40);
+      const mu = Math.max(0.1, parseFloat(inputs.coefAproveitamento.value) || 2.0);
+      const tsn_norma = Math.max(0, Math.min(100, parseFloat(inputs.tsn.value) || 20)) / 100.0;
+
+      const af_front = Math.max(0, parseFloat(inputs.afFrontal.value) || 7.0);
+      const af_front_min = Math.max(0, parseFloat(inputs.afFrontalMin.value) || 5.0);
+      const af_lat = Math.max(0, parseFloat(inputs.afLateral.value) || 4.0);
+      const af_fundo = af_lat;
+
+      const gabarito = parseFloat(inputs.gabaritoMax.value) || 0;
+      const semGabarito = inputs.semGabarito.checked;
+      inputs.gabaritoMax.disabled = semGabarito;
+
+      showCotas = inputs.showCotas.checked;
+      outputs.btnToggleCotas.className = `hud-btn ${showCotas ? 'active' : ''}`;
+      outputs.btnToggleCotas.textContent = showCotas ? "Cotas: LIGADAS" : "Cotas: DESLIGADAS";
+
+      const colaEsq = inputs.colaEsq.checked;
+      const colaDir = inputs.colaDir.checked;
+      const colaFundo = inputs.colaFundo.checked;
+      const semienterrado = inputs.semienterrado.checked;
+
+      const a_unid = Math.max(10, parseFloat(inputs.areaUnidade.value) || 200);
+      const unid_pvt = Math.max(1, parseInt(inputs.unidPorPvt.value) || 1);
+      const h_pvt = 3.0;
+
+      const area_terreno = L_terr * P_terr;
+      const area_priv_max_legal = area_terreno * mu;
+
+      let area_comum_pvt = 20.0;
+      if (unid_pvt > 2) {
+        area_comum_pvt = 20.0 + (unid_pvt - 2) * 10.0;
+      }
+
+      const area_priv_pvt = unid_pvt * a_unid;
+      const area_proj_torre_nec = area_priv_pvt + area_comum_pvt;
+
+      let num_pvt_tipo = Math.round(area_priv_max_legal / area_priv_pvt);
+      if (num_pvt_tipo < 1) num_pvt_tipo = 1;
+      const total_unidades = num_pvt_tipo * unid_pvt;
+
+      const area_priv_calculada = total_unidades * a_unid;
+      const perc_utilizacao = (area_priv_calculada / area_priv_max_legal) * 100.0;
+
+      const L_torre_max = Math.max(1, L_terr - (2 * af_lat));
+      const P_torre_max = Math.max(1, P_terr - af_front - af_fundo);
+      const area_proj_torre_max = L_torre_max * P_torre_max;
+
+      let L_torre = Math.min(L_torre_max, Math.sqrt(area_proj_torre_nec * (L_torre_max / P_torre_max)));
+      let P_torre = area_proj_torre_nec / L_torre;
+      if (P_torre > P_torre_max) {
+        P_torre = P_torre_max;
+        L_torre = Math.min(L_torre_max, area_proj_torre_nec / P_torre);
+      }
+
+      let vagas_por_unidade = 1;
+      if (a_unid <= 80) vagas_por_unidade = 1;
+      else if (a_unid <= 150) vagas_por_unidade = 2;
+      else if (a_unid <= 250) vagas_por_unidade = 3;
+      else vagas_por_unidade = 4;
+
+      const total_veiculos = total_unidades * vagas_por_unidade;
+      const area_garagem_total = total_veiculos * 25.0;
+
+      const af_esq_base = colaEsq ? 0.0 : af_lat;
+      const af_dir_base = colaDir ? 0.0 : af_lat;
+      const af_fundo_base = colaFundo ? 0.0 : af_fundo;
+
+      const L_base = Math.max(1, L_terr - af_esq_base - af_dir_base);
+      const P_base = Math.max(1, P_terr - af_front - af_fundo_base);
+      const area_proj_base = L_base * P_base;
+
+      const asn_projeto = Math.max(0, area_terreno - area_proj_base);
+      const tsn_projeto = (asn_projeto / area_terreno) * 100.0;
+      const asn_exigido = area_terreno * tsn_norma;
+
+      const pvt_garagem_total = Math.ceil(area_garagem_total / area_proj_base);
+
+      const max_pvt_acima_solo_colado = 3;
+      const pvt_gar_colado_max = max_pvt_acima_solo_colado - 1 + (semienterrado ? 1 : 0);
+
+      let pvt_gar_colado = Math.min(pvt_garagem_total, pvt_gar_colado_max);
+      let pvt_gar_recuado = Math.max(0, pvt_garagem_total - pvt_gar_colado);
+
+      const pvt_base_colada_total = 1 + pvt_gar_colado;
+      const pvt_base_acima_solo = pvt_base_colada_total - (semienterrado ? 1 : 0);
+
+      const h_base_colada = pvt_base_acima_solo * h_pvt;
+      const h_garagem_recuada = pvt_gar_recuado * h_pvt;
+      const h_corpo = num_pvt_tipo * h_pvt;
+      const h_total_acima_solo = h_base_colada + h_garagem_recuada + h_corpo;
+      const pavimentos_totais = pvt_base_colada_total + pvt_gar_recuado + num_pvt_tipo;
+
+      const validacoes = [];
+
+      let passa_gabarito = true;
+      let difGabarito = 0;
+      if (!semGabarito && gabarito > 0) {
+        difGabarito = gabarito - h_total_acima_solo;
+        passa_gabarito = (h_total_acima_solo <= gabarito);
+        validacoes.push({
+          nome: "Gabarito Máximo",
+          passa: passa_gabarito,
+          detalhe: passa_gabarito
+            ? `Altura de ${h_total_acima_solo.toFixed(1)}m atende ao limite de ${gabarito.toFixed(1)}m (folga: +${difGabarito.toFixed(1)}m).`
+            : `Altura de ${h_total_acima_solo.toFixed(1)}m ULTRAPASSA o limite de ${gabarito.toFixed(1)}m (+${Math.abs(difGabarito).toFixed(1)}m excesso)!`
+        });
+      } else {
+        validacoes.push({
+          nome: "Gabarito Máximo",
+          passa: true,
+          detalhe: `Sem gabarito fixado (altura livre de ${h_total_acima_solo.toFixed(1)}m).`
+        });
+      }
+
+      const passa_tsn = asn_projeto >= (asn_exigido - 0.01);
+      validacoes.push({
+        nome: "Taxa de Solo Natural (TSN)",
+        passa: passa_tsn,
+        detalhe: passa_tsn
+          ? `ASN de ${asn_projeto.toFixed(1)}m² (${tsn_projeto.toFixed(1)}%) atende à norma de ${asn_exigido.toFixed(1)}m² (${(tsn_norma * 100).toFixed(0)}%).`
+          : `ASN de ${asn_projeto.toFixed(1)}m² (${tsn_projeto.toFixed(1)}%) NÃO ATENDE! Déficit de ${(asn_exigido - asn_projeto).toFixed(1)}m² permeáveis!`
+      });
+
+      const passa_torre = area_proj_torre_nec <= area_proj_torre_max;
+      validacoes.push({
+        nome: "Envelope Edificável da Torre",
+        passa: passa_torre,
+        detalhe: passa_torre
+          ? `Pavimento tipo (${area_proj_torre_nec.toFixed(1)}m² com área comum) cabe na projeção disponível de ${area_proj_torre_max.toFixed(1)}m².`
+          : `Pavimento tipo (${area_proj_torre_nec.toFixed(1)}m²) EXCEDE a projeção máxima dos afastamentos (${area_proj_torre_max.toFixed(1)}m²)!`
+      });
+
+      const passa_af_front = af_front >= af_front_min;
+      const af_lat_min_req = 3.0;
+      const passa_af_lat = (colaEsq || af_lat >= af_lat_min_req) &&
+                           (colaDir || af_lat >= af_lat_min_req) &&
+                           (colaFundo || af_fundo >= af_lat_min_req);
+
+      let passa_afastamentos = passa_af_front && passa_af_lat;
+      let det_afast = [];
+      if (!passa_af_front) det_afast.push(`Af. frontal (${af_front}m) < mínimo (${af_front_min}m).`);
+      if (!passa_af_lat) det_afast.push(`Af. lateral/fundo sem colar (${af_lat}m) < mínimo (3,0m).`);
+      if (passa_afastamentos) det_afast.push(`Afastamentos respeitam os mínimos legais.`);
+
+      validacoes.push({
+        nome: "Afastamentos Mínimos Legais",
+        passa: passa_afastamentos,
+        detalhe: det_afast.join(" ")
+      });
+
+      const statusGlobalPassa = validacoes.every(v => v.passa);
+      outputs.cardStatusMaster.className = `status-master-card ${statusGlobalPassa ? 'pass' : 'fail'}`;
+      outputs.badgeStatusMaster.className = `status-pill ${statusGlobalPassa ? 'pass' : 'fail'}`;
+      outputs.badgeStatusMaster.textContent = statusGlobalPassa ? "PASSA (CONFORME)" : "NÃO PASSA (REPROVADO)";
+
+      outputs.listValidations.innerHTML = validacoes.map(v => `
+        <div class="validation-item">
+          <span class="validation-icon ${v.passa ? 'pass' : 'fail'}">${v.passa ? '✓' : '✗'}</span>
+          <div>
+            <strong>${v.nome}:</strong> ${v.detalhe}
+          </div>
+        </div>
+      `).join('');
+
+      outputs.areaTerreno.textContent = `${area_terreno.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} m²`;
+      outputs.dimTerreno.textContent = `${L_terr.toFixed(1)}m × ${P_terr.toFixed(1)}m`;
+      outputs.areaPrivMax.textContent = `${area_priv_max_legal.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} m²`;
+
+      outputs.percUtilizacao.textContent = `${perc_utilizacao.toFixed(1)}%`;
+      outputs.percUtilizacaoSub.textContent = `${area_priv_calculada.toFixed(0)}m² / ${area_priv_max_legal.toFixed(0)}m²`;
+
+      outputs.asn.textContent = `${asn_projeto.toFixed(1)} m²`;
+      outputs.tsnProjeto.textContent = `TSN Projeto: ${tsn_projeto.toFixed(1)}% (Exigida: ${(tsn_norma * 100).toFixed(0)}%)`;
+      outputs.projBase.textContent = `${area_proj_base.toFixed(1)} m²`;
+      outputs.dimBase.textContent = `${L_base.toFixed(1)}m × ${P_base.toFixed(1)}m`;
+      outputs.projTorre.textContent = `${area_proj_torre_nec.toFixed(1)} / ${area_proj_torre_max.toFixed(1)} m²`;
+      outputs.areaComumInfo.textContent = `Priv: ${area_priv_pvt.toFixed(0)}m² + Comum: ${area_comum_pvt.toFixed(0)}m²`;
+      outputs.totalUnidades.textContent = `${total_unidades} aptos`;
+      outputs.detPavTipo.textContent = `${num_pvt_tipo} pav. tipo × ${unid_pvt} unid/pvt`;
+      outputs.totalVagas.textContent = `${total_veiculos} vagas (${vagas_por_unidade}/apto)`;
+      outputs.areaGaragem.textContent = `${area_garagem_total.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} m² (25m²/vg)`;
+      outputs.pavBase.textContent = `${pvt_base_colada_total + pvt_gar_recuado} pav.`;
+      outputs.detBase.textContent = `${semienterrado ? '1 Semient. + ' : ''}1 Térreo + ${pvt_gar_colado - (semienterrado ? 1 : 0)} Gar. Colada${pvt_gar_recuado > 0 ? ' + ' + pvt_gar_recuado + ' Gar. Recuada' : ''}`;
+      outputs.alturaTotal.textContent = `${h_total_acima_solo.toFixed(1)} m`;
+      outputs.totalPav.textContent = `${pavimentos_totais} pavimentos totais (${h_base_colada.toFixed(1)}m base)`;
+
+      outputs.legendSemienterrado.style.display = semienterrado ? 'flex' : 'none';
+      outputs.legendGaragemRecuada.style.display = pvt_gar_recuado > 0 ? 'flex' : 'none';
+      outputs.legendGabarito.style.display = semGabarito ? 'none' : 'flex';
+
+      rebuild3D({
+        L_terr, P_terr,
+        af_front, af_lat, af_fundo,
+        af_esq_base, af_dir_base, af_fundo_base,
+        L_base, P_base, h_base_colada, pvt_base_colada_total,
+        semienterrado,
+        pvt_gar_recuado, h_garagem_recuada,
+        L_torre, P_torre, h_corpo, num_pvt_tipo,
+        L_torre_max, P_torre_max,
+        h_total_acima_solo,
+        gabarito, semGabarito, passa_gabarito,
+        statusGlobalPassa,
+        showCotas
+      });
+
+      currentFrustumSize = Math.max(L_terr, P_terr, h_total_acima_solo, 45) * 1.45;
+      updateCameraForCurrentView();
+    }
+
+    function rebuild3D(data) {
+      while(groundGroup.children.length > 0) groundGroup.remove(groundGroup.children[0]);
+      while(setbackGroup.children.length > 0) setbackGroup.remove(setbackGroup.children[0]);
+      while(buildingGroup.children.length > 0) buildingGroup.remove(buildingGroup.children[0]);
+      while(gabaritoGroup.children.length > 0) gabaritoGroup.remove(gabaritoGroup.children[0]);
+      while(dimensionsGroup.children.length > 0) dimensionsGroup.remove(dimensionsGroup.children[0]);
+
+      const {
+        L_terr, P_terr,
+        af_front, af_lat, af_fundo,
+        af_esq_base, af_dir_base, af_fundo_base,
+        L_base, P_base, h_base_colada, pvt_base_colada_total,_base, P_base, h_base_colada, pvt_base_colada_total,
+        semienterrado,
+        pvt_gar_recuado, h_garagem_recuada,
+        L_torre, P_torre, h_corpo, num_pvt_tipo,
+        L_torre_max, P_torre_max,
+        h_total_acima_solo,
+        gabarito, semGabarito, passa_gabarito,
+        statusGlobalPassa,
+        showCotas
+      } = data;
+
+      const frontZ = P_terr / 2;
+      const backZ = -P_terr / 2;
+      const leftX = -L_terr / 2;
+      const rightX = L_terr / 2;
+      const pe_direito = 3.0;
+
+      // 1. TERRENO
+      const terrenoGeo = new THREE.PlaneGeometry(L_terr, P_terr);
+      terrenoGeo.rotateX(-Math.PI / 2);
+      const terrenoMesh = new THREE.Mesh(terrenoGeo, new THREE.MeshStandardMaterial({
+        color: 0x166534,
+        roughness: 0.9,
+        side: THREE.DoubleSide
+      }));
+      terrenoMesh.receiveShadow = true;
+      groundGroup.add(terrenoMesh);
+
+      const bordaGeo = new THREE.EdgesGeometry(terrenoGeo);
+      const bordaLine = new THREE.LineSegments(bordaGeo, new THREE.LineBasicMaterial({ color: 0x22c55e, linewidth: 2.5 }));
+      bordaLine.position.y = 0.04;
+      groundGroup.add(bordaLine);
+
+      // 2. ENVELOPE DOS RECUOS
+      const centerZ_torre_env = frontZ - af_front - (P_torre_max / 2);
+      const recuoGeo = new THREE.PlaneGeometry(L_torre_max, P_torre_max);
+      recuoGeo.rotateX(-Math.PI / 2);
+      const recuoMesh = new THREE.Mesh(recuoGeo, new THREE.MeshBasicMaterial({
+        color: 0xeab308,
+        transparent: true,
+        opacity: 0.16,
+        side: THREE.DoubleSide
+      }));
+      recuoMesh.position.set(0, 0.06, centerZ_torre_env);
+      setbackGroup.add(recuoMesh);
+
+      const recuoBorda = new THREE.LineSegments(new THREE.EdgesGeometry(recuoGeo), new THREE.LineDashedMaterial({
+        color: 0xfacc15,
+        dashSize: 1.5,
+        gapSize: 0.8,
+        linewidth: 2
+      }));
+      recuoBorda.computeLineDistances();
+      recuoBorda.position.set(0, 0.07, centerZ_torre_env);
+      setbackGroup.add(recuoBorda);
+
+      // 3. BASE COLADA
+      const posX_base = (af_esq_base - af_dir_base) / 2;
+      const posZ_base = frontZ - af_front - (P_base / 2);
+
+      let h_total_base_box = h_base_colada;
+      let posY_base = h_base_colada / 2;
+
+      if (semienterrado) {
+        h_total_base_box += pe_direito;
+        posY_base = (h_total_base_box / 2) - pe_direito;
+      }
+
+      const baseGeo = new THREE.BoxGeometry(L_base, h_total_base_box, P_base);
+      const baseMesh = new THREE.Mesh(baseGeo, new THREE.MeshStandardMaterial({
+        color: 0x475569,
+        roughness: 0.5,
+        metalness: 0.25
+      }));
+      baseMesh.position.set(posX_base, posY_base, posZ_base);
+      baseMesh.castShadow = true;
+      baseMesh.receiveShadow = true;
+      buildingGroup.add(baseMesh);
+
+      const baseEdges = new THREE.LineSegments(new THREE.EdgesGeometry(baseGeo), new THREE.LineBasicMaterial({ color: 0x94a3b8 }));
+      baseEdges.position.copy(baseMesh.position);
+      buildingGroup.add(baseEdges);
+
+      const startPvtY = semienterrado ? -pe_direito : 0;
+      for (let i = 1; i < pvt_base_colada_total; i++) {
+        const yPvt = startPvtY + (i * pe_direito);
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(-L_base / 2, yPvt, P_base / 2),
+          new THREE.Vector3(L_base / 2, yPvt, P_base / 2),
+          new THREE.Vector3(L_base / 2, yPvt, -P_base / 2),
+          new THREE.Vector3(-L_base / 2, yPvt, -P_base / 2),
+          new THREE.Vector3(-L_base / 2, yPvt, P_base / 2),
+        ]);
+        const floorLine = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({
+          color: (yPvt <= 0) ? 0x38bdf8 : 0x94a3b8,
+          transparent: true,
+          opacity: 0.5
+        }));
+        floorLine.position.set(posX_base, 0, posZ_base);
+        buildingGroup.add(floorLine);
+      }
+
+      // 4. GARAGENS RECUADAS SUPERIORES (>10M)
+      let currentTopY = h_base_colada;
+      if (pvt_gar_recuado > 0) {
